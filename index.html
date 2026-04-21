@@ -1,0 +1,642 @@
+import React, { useState, useEffect, useLayoutEffect, useMemo, useRef } from 'react';
+import { Trophy, Clock, User, Play, FastForward, Shield, Sword, Edit3, Check, Image as ImageIcon, X, Plus, Trash2, Dices, Save, UploadCloud, PartyPopper, RefreshCcw, Settings, Ban, Cloud, CloudOff } from 'lucide-react';
+
+const GRID_COLS = 5;
+const GRID_ROWS = 4;
+const INITIAL_TIMER = 30; 
+
+const useAudio = () => {
+  const audioCtx = useRef(null);
+  const initAudio = () => {
+    if (!audioCtx.current) audioCtx.current = new (window.AudioContext || window.webkitAudioContext)();
+  };
+
+  const playPassSound = () => {
+    initAudio();
+    if (audioCtx.current.state === 'suspended') audioCtx.current.resume();
+    const now = audioCtx.current.currentTime;
+    const osc1 = audioCtx.current.createOscillator();
+    const gain1 = audioCtx.current.createGain();
+    osc1.type = 'sawtooth';
+    osc1.frequency.setValueAtTime(150, now);
+    osc1.frequency.exponentialRampToValueAtTime(40, now + 0.4);
+    gain1.gain.setValueAtTime(0.3, now);
+    gain1.gain.exponentialRampToValueAtTime(0.01, now + 0.4);
+    osc1.connect(gain1);
+    gain1.connect(audioCtx.current.destination);
+    const osc2 = audioCtx.current.createOscillator();
+    const gain2 = audioCtx.current.createGain();
+    osc2.type = 'square';
+    osc2.frequency.setValueAtTime(110, now);
+    osc2.frequency.linearRampToValueAtTime(55, now + 0.2);
+    gain2.gain.setValueAtTime(0.1, now);
+    gain2.gain.exponentialRampToValueAtTime(0.01, now + 0.2);
+    osc2.connect(gain2);
+    gain2.connect(audioCtx.current.destination);
+    osc1.start(now);
+    osc1.stop(now + 0.4);
+    osc2.start(now);
+    osc2.stop(now + 0.4);
+  };
+
+  const playTick = (freq = 440) => {
+    initAudio();
+    if (audioCtx.current.state === 'suspended') audioCtx.current.resume();
+    const osc = audioCtx.current.createOscillator();
+    const gain = audioCtx.current.createGain();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(freq, audioCtx.current.currentTime);
+    gain.gain.setValueAtTime(0.1, audioCtx.current.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.current.currentTime + 0.1);
+    osc.connect(gain);
+    gain.connect(audioCtx.current.destination);
+    osc.start();
+    osc.stop(audioCtx.current.currentTime + 0.1);
+  };
+
+  const playRoundEndMusic = (isWin = true) => {
+    initAudio();
+    if (audioCtx.current.state === 'suspended') audioCtx.current.resume();
+    const now = audioCtx.current.currentTime;
+    const melody = isWin ? [440, 554, 659, 880] : [220, 196, 174, 110]; 
+    melody.forEach((freq, i) => {
+      const osc = audioCtx.current.createOscillator();
+      const gain = audioCtx.current.createGain();
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(freq, now + i * 0.15);
+      gain.gain.setValueAtTime(0.1, now + i * 0.15);
+      gain.gain.exponentialRampToValueAtTime(0.01, now + (i + 1) * 0.15);
+      osc.connect(gain);
+      gain.connect(audioCtx.current.destination);
+      osc.start(now + i * 0.15);
+      osc.stop(now + (i + 1) * 0.15);
+    });
+  };
+
+  const playVictoryFanfare = () => {
+    initAudio();
+    if (audioCtx.current.state === 'suspended') audioCtx.current.resume();
+    const now = audioCtx.current.currentTime;
+    const notes = [523.25, 659.25, 783.99, 1046.50, 1318.51];
+    notes.forEach((freq, i) => {
+      const osc = audioCtx.current.createOscillator();
+      const gain = audioCtx.current.createGain();
+      osc.type = 'square';
+      osc.frequency.setValueAtTime(freq, now + i * 0.12);
+      gain.gain.setValueAtTime(0.05, now + i * 0.12);
+      gain.gain.linearRampToValueAtTime(0, now + i * 0.12 + 0.6);
+      osc.connect(gain);
+      gain.connect(audioCtx.current.destination);
+      osc.start(now + i * 0.12);
+      osc.stop(now + i * 0.12 + 0.6);
+    });
+  };
+
+  return { playPassSound, playRoundEndMusic, playTick, playVictoryFanfare };
+};
+
+const AutoScaledText = ({ text, containerWidth, containerHeight, color = "white", maxFontSize = 150 }) => {
+  const [fontSize, setFontSize] = useState(12);
+
+  useLayoutEffect(() => {
+    if (!text || containerWidth <= 0 || containerHeight <= 0) return;
+    const canvas = document.createElement('canvas');
+    const context = canvas.getContext('2d');
+    const words = text.split(/\s+/);
+    let low = 8, high = maxFontSize, bestSize = 8;
+
+    while (low <= high) {
+      const mid = Math.floor((low + high) / 2);
+      context.font = `900 ${mid}px sans-serif`;
+      let maxWordWidth = 0;
+      words.forEach(w => maxWordWidth = Math.max(maxWordWidth, context.measureText(w).width));
+      const lineHeight = mid * 0.9;
+      let lines = 1, currentLineWidth = 0;
+      const spaceWidth = context.measureText(' ').width;
+
+      words.forEach((word, i) => {
+        const wordWidth = context.measureText(word).width;
+        if (i === 0) { currentLineWidth = wordWidth; }
+        else {
+          if (currentLineWidth + spaceWidth + wordWidth > containerWidth * 0.85) {
+            lines++;
+            currentLineWidth = wordWidth;
+          } else { currentLineWidth += spaceWidth + wordWidth; }
+        }
+      });
+
+      if (maxWordWidth <= containerWidth * 0.95 && (lines * lineHeight) <= containerHeight * 0.9) {
+        bestSize = mid; low = mid + 1;
+      } else { high = mid - 1; }
+    }
+    setFontSize(bestSize);
+  }, [text, containerWidth, containerHeight, maxFontSize]);
+
+  return (
+    <div 
+      className="flex items-center justify-center text-center p-1 leading-[0.85] font-black uppercase tracking-tighter select-none pointer-events-none break-words overflow-hidden w-full h-full"
+      style={{ fontSize: `${fontSize}px`, color, textShadow: '0 4px 12px rgba(0,0,0,0.5)' }}
+    >
+      {text}
+    </div>
+  );
+};
+
+export default function App() {
+  const [gameState, setGameState] = useState('setup');
+  const [cells, setCells] = useState([]);
+  const [attacker, setAttacker] = useState(null);
+  const [defender, setDefender] = useState(null);
+  const [timer, setTimer] = useState({ attacker: INITIAL_TIMER, defender: INITIAL_TIMER });
+  const [activeDuelist, setActiveDuelist] = useState(null); 
+  const [highlightedIndex, setHighlightedIndex] = useState(null);
+  const [gridSize, setGridSize] = useState({ width: 0, height: 0 });
+  const [decks, setDecks] = useState({}); 
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const [editingRegion, setEditingRegion] = useState(null); 
+  const [conqueredIndices, setConqueredIndices] = useState([]);
+  const [hoveredOwner, setHoveredOwner] = useState(null);
+  const [playedPlayers, setPlayedPlayers] = useState(new Set());
+  const [isShowingAnswer, setIsShowingAnswer] = useState(false);
+  const [lastFeedbackType, setLastFeedbackType] = useState(null); 
+  
+  const gridRef = useRef(null);
+  const { playPassSound, playRoundEndMusic, playTick, playVictoryFanfare } = useAudio();
+
+  const initFloor = () => {
+    const categories = ["LOGOS", "FRUITS", "CARS", "MOVIES", "HEROES", "LANDMARKS", "NATIONS", "TOONS", "ANIMALS", "HISTORY", "SCIENCE", "SPORTS", "TOOLS", "FASHION", "GAMING", "DESSERTS", "SPACE", "MUSIC", "BOOKS", "FLAGS"];
+    const newCells = categories.map((cat, i) => ({
+      id: i,
+      category: cat,
+      owner: `PLAYER ${i + 1}`,
+      color: `hsl(${(i * 360) / 20}, 70%, 45%)`,
+    }));
+    setCells(newCells);
+    setPlayedPlayers(new Set());
+    setGameState('floor');
+  };
+
+  useLayoutEffect(() => {
+    if (gameState === 'setup' || !gridRef.current) return;
+    const measure = () => {
+      if (gridRef.current) {
+        setGridSize({
+          width: gridRef.current.clientWidth,
+          height: gridRef.current.clientHeight
+        });
+      }
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(gridRef.current);
+    window.addEventListener('resize', measure);
+    return () => {
+      observer.disconnect();
+      window.removeEventListener('resize', measure);
+    };
+  }, [gameState]);
+
+  const checkVictory = (currentCells) => {
+    const owners = new Set(currentCells.map(c => c.owner));
+    if (owners.size === 1) {
+      setGameState('victory');
+      playVictoryFanfare();
+    }
+  };
+
+  const targetableOwners = useMemo(() => {
+    if (!attacker) return [];
+    const attackerIndices = cells.map((c, i) => (c.owner === attacker.owner ? i : null)).filter(i => i !== null);
+    const neighbors = new Set();
+    attackerIndices.forEach(idx => {
+      const r = Math.floor(idx / GRID_COLS), c = idx % GRID_COLS;
+      [{ r: r - 1, c }, { r: r + 1, c }, { r, c: c - 1 }, { r, c: c + 1 }].forEach(p => {
+        if (p.r >= 0 && p.r < GRID_ROWS && p.c >= 0 && p.c < GRID_COLS) {
+          const owner = cells[p.r * GRID_COLS + p.c].owner;
+          if (owner !== attacker.owner) neighbors.add(owner);
+        }
+      });
+    });
+    return Array.from(neighbors);
+  }, [attacker, cells]);
+
+  const handleDuelEnd = (winnerRole) => {
+    playRoundEndMusic(true);
+    const isAttackerWinner = winnerRole === 'attacker';
+    const winningOwnerId = isAttackerWinner ? attacker.owner : defender.owner;
+    const losingOwnerId = isAttackerWinner ? defender.owner : attacker.owner;
+    const winningColor = isAttackerWinner ? attacker.color : defender.color;
+    const finalCategory = attacker.category;
+
+    setPlayedPlayers(prev => {
+      const next = new Set(prev);
+      next.add(attacker.owner);
+      next.add(defender.owner);
+      return next;
+    });
+
+    const changedIndices = [];
+    const newCells = cells.map((cell, idx) => {
+      if (cell.owner === losingOwnerId) {
+        changedIndices.push(idx);
+        return { ...cell, owner: winningOwnerId, color: winningColor, category: finalCategory };
+      }
+      if (cell.owner === winningOwnerId) return { ...cell, category: finalCategory };
+      return cell;
+    });
+
+    setConqueredIndices(changedIndices);
+    setCells(newCells);
+    setGameState('floor');
+    setActiveDuelist(null);
+    setAttacker({ owner: winningOwnerId, category: finalCategory, color: winningColor });
+    setDefender(null);
+    checkVictory(newCells);
+    setTimeout(() => setConqueredIndices([]), 2000);
+  };
+
+  const cancelDuel = () => {
+    setGameState('floor');
+    setActiveDuelist(null);
+    setAttacker(null);
+    setDefender(null);
+  };
+
+  const startDuel = (owner, category, color) => {
+    if (gameState !== 'floor' || gameState === 'randomizing') return;
+    if (attacker && owner === attacker.owner) { setAttacker(null); return; }
+    if (!attacker) {
+      setAttacker({ owner, category, color });
+    } else if (targetableOwners.includes(owner)) {
+      setDefender({ owner, category, color });
+      setTimer({ attacker: INITIAL_TIMER, defender: INITIAL_TIMER });
+      setActiveDuelist('attacker');
+      setCurrentImageIndex(0);
+      setGameState('duel');
+    }
+  };
+
+  const pickRandomAttacker = () => {
+    setGameState('randomizing');
+    setAttacker(null);
+    const uniqueOwners = Array.from(new Set(cells.map(c => c.owner)));
+    if (uniqueOwners.length <= 1) return;
+    let candidates = uniqueOwners.filter(owner => !playedPlayers.has(owner));
+    if (candidates.length === 0) {
+      candidates = uniqueOwners;
+      setPlayedPlayers(new Set());
+    }
+    let duration = 3000, elapsed = 0, interval = 60;
+    const run = () => {
+      const idx = Math.floor(Math.random() * cells.length);
+      setHighlightedIndex(idx);
+      playTick(200 + (elapsed / duration) * 400); 
+      elapsed += interval; 
+      interval = Math.min(400, interval * 1.05);
+      if (elapsed < duration) setTimeout(run, interval);
+      else {
+        const winner = candidates[Math.floor(Math.random() * candidates.length)];
+        const cell = cells.find(c => c.owner === winner);
+        const finalIdx = cells.indexOf(cell);
+        setHighlightedIndex(finalIdx);
+        setTimeout(() => {
+          setAttacker({ owner: cell.owner, category: cell.category, color: cell.color });
+          setHighlightedIndex(null);
+          setGameState('floor');
+        }, 1500);
+      }
+    };
+    run();
+  };
+
+  const handleNextImage = () => {
+    if (isShowingAnswer) return;
+    setLastFeedbackType('correct');
+    setIsShowingAnswer(true);
+    setTimeout(() => {
+      const deck = decks[defender?.category] || [];
+      setCurrentImageIndex(prev => (prev + 1) % (deck.length || 1));
+      setActiveDuelist(activeDuelist === 'attacker' ? 'defender' : 'attacker');
+      playTick(600);
+      setIsShowingAnswer(false);
+    }, 1000);
+  };
+
+  const handlePass = () => {
+    if (isShowingAnswer) return;
+    playPassSound();
+    setLastFeedbackType('pass');
+    setTimer(prev => {
+      const newVal = Math.max(0, prev[activeDuelist] - 3);
+      return { ...prev, [activeDuelist]: newVal };
+    });
+    setIsShowingAnswer(true);
+    setTimeout(() => {
+      const deck = decks[defender?.category] || [];
+      if (deck.length > 1) setCurrentImageIndex(prev => (prev + 1) % deck.length);
+      setIsShowingAnswer(false);
+    }, 1000);
+  };
+
+  const addDeckImages = async (category, files) => {
+    const readers = Array.from(files).map(file => {
+      return new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onload = (e) => resolve({
+          url: e.target.result,
+          name: file.name.split('.')[0].replace(/[-_]/g, ' ')
+        });
+        reader.readAsDataURL(file);
+      });
+    });
+    const newImages = await Promise.all(readers);
+    setDecks(prev => ({ ...prev, [category]: [...(prev[category] || []), ...newImages] }));
+  };
+
+  const removeDeckImage = (category, idx) => {
+    setDecks(prev => ({ prev, [category]: prev[category].filter((_, i) => i !== idx) }));
+  };
+
+  const renameDeckImage = (category, idx, newName) => {
+    setDecks(prev => ({
+      ...prev,
+      [category]: prev[category].map((img, i) => i === idx ? { ...img, name: newName } : img)
+    }));
+  };
+
+  const regions = useMemo(() => {
+    if (cells.length === 0) return [];
+    const visited = new Set(), regionsList = [];
+    cells.forEach((cell, idx) => {
+      if (visited.has(idx)) return;
+      const current = { owner: cell.owner, category: cell.category, color: cell.color, indices: [], minR: 99, maxR: -1, minC: 99, maxC: -1 };
+      const q = [idx]; visited.add(idx);
+      while (q.length > 0) {
+        const curr = q.shift();
+        const r = Math.floor(curr / GRID_COLS), c = curr % GRID_COLS;
+        current.indices.push(curr);
+        current.minR = Math.min(current.minR, r); current.maxR = Math.max(current.maxR, r);
+        current.minC = Math.min(current.minC, c); current.maxC = Math.max(current.maxC, c);
+        [{ r: r-1, c }, { r: r+1, c }, { r, c: c-1 }, { r, c: c+1 }].forEach(n => {
+          const nIdx = n.r * GRID_COLS + n.c;
+          if (n.r >= 0 && n.r < GRID_ROWS && n.c >= 0 && n.c < GRID_COLS && !visited.has(nIdx) && cells[nIdx].owner === cell.owner) {
+            visited.add(nIdx); q.push(nIdx);
+          }
+        });
+      }
+      let sumR = 0, sumC = 0;
+      current.indices.forEach(idx => { sumR += Math.floor(idx / GRID_COLS); sumC += idx % GRID_COLS; });
+      const avgR = sumR / current.indices.length; const avgC = sumC / current.indices.length;
+      let bestIdx = current.indices[0], minDist = Infinity;
+      current.indices.forEach(idx => {
+        const r = Math.floor(idx / GRID_COLS), c = idx % GRID_COLS;
+        const dist = Math.pow(r - avgR, 2) + Math.pow(c - avgC, 2);
+        if (dist < minDist) { minDist = dist; bestIdx = idx; }
+      });
+      current.centerIdx = bestIdx;
+      regionsList.push(current);
+    });
+    return regionsList;
+  }, [cells]);
+
+  useEffect(() => {
+    let interval;
+    if (gameState === 'duel' && activeDuelist && !isShowingAnswer) {
+      interval = setInterval(() => {
+        setTimer(prev => {
+          const val = prev[activeDuelist] - 1;
+          if (val <= 5 && val > 0) playTick(880); 
+          if (val <= 0) { 
+            handleDuelEnd(activeDuelist === 'attacker' ? 'defender' : 'attacker'); 
+            return { ...prev, [activeDuelist]: 0 }; 
+          }
+          return { ...prev, [activeDuelist]: val };
+        });
+      }, 1000);
+    }
+    return () => clearInterval(interval);
+  }, [gameState, activeDuelist, isShowingAnswer]);
+
+  if (gameState === 'setup') {
+    return (
+      <div className="h-screen bg-slate-950 flex flex-col items-center justify-center p-4">
+        <div className="flex flex-col items-center mb-12">
+          <span className="text-blue-400 font-bold tracking-[0.2em] mb-2 uppercase text-sm">HKTAYY3 Presents:</span>
+          <div className="text-8xl font-black text-blue-500 italic uppercase tracking-tighter drop-shadow-[0_15px_15px_rgba(0,0,0,0.5)] text-center">THE FLOOR</div>
+        </div>
+        <button onClick={initFloor} className="bg-blue-600 hover:bg-blue-500 px-12 py-6 rounded-2xl font-black text-3xl shadow-[0_8px_0_rgb(30,58,138)] transition-all active:translate-y-2">START NEW GAME</button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="h-screen bg-black text-white flex flex-col font-sans select-none overflow-hidden">
+      <header className="h-16 bg-slate-900 border-b border-white/5 flex justify-between items-center px-8 z-[60] relative">
+        <div className="flex items-center gap-6">
+          <div className="flex flex-col">
+            <span className="text-blue-400 font-bold text-[10px] uppercase tracking-widest leading-none mb-1">HKTAYY3 Presents:</span>
+            <span className="text-blue-500 font-black italic text-xl uppercase tracking-tighter leading-none">THE FLOOR</span>
+          </div>
+        </div>
+        
+        {gameState === 'duel' && (
+          <div className="flex gap-12 items-center">
+             <div className={`flex flex-col items-center transition-all duration-300 ${activeDuelist === 'attacker' ? 'scale-110' : 'opacity-30'}`}>
+               <span className={`text-[10px] font-black uppercase transition-colors ${timer.attacker <= 5 ? 'text-red-500 animate-pulse' : 'text-red-400'}`}>{attacker?.owner}</span>
+               <div className={`text-3xl font-mono font-black tabular-nums tracking-tighter transition-colors ${timer.attacker <= 5 ? 'text-red-500' : 'text-white'}`}>
+                {timer.attacker}
+               </div>
+             </div>
+             <div className="text-lg italic font-black text-slate-700">VS</div>
+             <div className={`flex flex-col items-center transition-all duration-300 ${activeDuelist === 'defender' ? 'scale-110' : 'opacity-30'}`}>
+               <span className={`text-[10px] font-black uppercase transition-colors ${timer.defender <= 5 ? 'text-red-500 animate-pulse' : 'text-blue-400'}`}>{defender?.owner}</span>
+               <div className={`text-3xl font-mono font-black tabular-nums tracking-tighter transition-colors ${timer.defender <= 5 ? 'text-red-500' : 'text-white'}`}>
+                {timer.defender}
+               </div>
+             </div>
+          </div>
+        )}
+
+        <div className="flex gap-4">
+            {gameState === 'duel' ? (
+              <button onClick={cancelDuel} className="bg-red-600 hover:bg-red-500 text-white px-6 py-2 rounded-xl font-black flex items-center gap-2 transition-all shadow-[0_4px_0_rgb(153,27,27)] active:translate-y-1 text-sm">
+                <Ban size={16} /> CANCEL DUEL
+              </button>
+            ) : (
+              <button onClick={pickRandomAttacker} disabled={gameState !== 'floor' || attacker} className="bg-white text-black px-6 py-2 rounded-xl font-black flex items-center gap-2 hover:bg-blue-100 disabled:opacity-20 transition-all shadow-[0_4px_0_rgb(200,200,200)] active:translate-y-1 text-sm">
+                <Dices size={16} /> RANDOMIZER
+              </button>
+            )}
+        </div>
+      </header>
+
+      <main className="flex-1 relative bg-slate-950 overflow-hidden">
+        {gameState === 'victory' && (
+          <div className="absolute inset-0 z-[200] bg-slate-950 flex flex-col items-center justify-center overflow-hidden animate-in fade-in duration-1000">
+            <div className="relative z-10 flex flex-col items-center text-center p-8">
+              <div className="bg-amber-400 p-8 rounded-full shadow-[0_0_100px_rgba(251,191,36,0.8)] animate-bounce mb-8">
+                <Trophy size={120} className="text-slate-900" />
+              </div>
+              <div className="flex flex-col items-center mb-6">
+                <span className="text-amber-400/80 font-bold tracking-[0.4em] uppercase text-xl mb-4">HKTAYY3 Presents:</span>
+                <h1 className="text-8xl font-black italic uppercase tracking-tighter text-white">THE ULTIMATE <span className="text-amber-400">CHAMPION</span></h1>
+              </div>
+              <div className="text-6xl font-black text-amber-400 italic mb-8 animate-pulse">{cells[0]?.owner}</div>
+              <button onClick={() => setGameState('setup')} className="bg-white text-black px-12 py-5 rounded-2xl font-black text-2xl hover:scale-105 active:scale-95 transition-all flex items-center gap-4 shadow-2xl">
+                <RefreshCcw size={28} /> RESTART TOURNAMENT
+              </button>
+            </div>
+          </div>
+        )}
+
+        <div className="w-full h-full relative" ref={gridRef}>
+          <div className="w-full h-full grid grid-cols-5 grid-rows-4 absolute inset-0">
+            {cells.map((cell, idx) => {
+              const isAttacker = attacker?.owner === cell.owner;
+              const isTarget = attacker && targetableOwners.includes(cell.owner);
+              const isHighlighted = highlightedIndex === idx;
+              const isConquered = conqueredIndices.includes(idx);
+              const isRandomizing = gameState === 'randomizing';
+              const isDimmed = (attacker && !isAttacker && !isTarget) || (isRandomizing && !isHighlighted);
+              const isHoveredTarget = isTarget && hoveredOwner === cell.owner;
+              const r = Math.floor(idx / GRID_COLS), c = idx % GRID_COLS;
+              const neighbors = {
+                top: (r > 0) ? cells[(r - 1) * GRID_COLS + c] : null,
+                bottom: (r < GRID_ROWS - 1) ? cells[(r + 1) * GRID_COLS + c] : null,
+                left: (c > 0) ? cells[r * GRID_COLS + (c - 1)] : null,
+                right: (c < GRID_COLS - 1) ? cells[r * GRID_COLS + (c + 1)] : null
+              };
+              const borderClass = `
+                ${!neighbors.top || neighbors.top.owner !== cell.owner || isAttacker ? `border-t-4 ${isAttacker ? 'border-t-amber-400' : 'border-t-white/20'}` : 'border-t-0'}
+                ${!neighbors.bottom || neighbors.bottom.owner !== cell.owner || isAttacker ? `border-b-4 ${isAttacker ? 'border-b-amber-400' : 'border-b-white/20'}` : 'border-b-0'}
+                ${!neighbors.left || neighbors.left.owner !== cell.owner || isAttacker ? `border-l-4 ${isAttacker ? 'border-l-amber-400' : 'border-l-white/20'}` : 'border-l-0'}
+                ${!neighbors.right || neighbors.right.owner !== cell.owner || isAttacker ? `border-r-4 ${isAttacker ? 'border-r-amber-400' : 'border-r-white/20'}` : 'border-r-0'}
+              `;
+              return (
+                <div key={idx} onMouseEnter={() => setHoveredOwner(cell.owner)} onMouseLeave={() => setHoveredOwner(null)} onClick={() => startDuel(cell.owner, cell.category, cell.color)}
+                  className={`relative transition-all duration-150 box-border cursor-pointer overflow-hidden ${borderClass} ${isDimmed ? 'opacity-20 grayscale scale-95 blur-[1px]' : 'opacity-100'} ${isHighlighted ? 'z-[110] !scale-110 !opacity-100 shadow-[0_0_60px_white] brightness-150' : 'z-10'} ${isConquered ? 'animate-pulse z-50' : ''} ${isHoveredTarget ? 'brightness-125' : ''}`}
+                  style={{ backgroundColor: isHighlighted ? 'white' : cell.color }}>
+                  {isHoveredTarget && <div className="absolute inset-0 bg-red-500/40 animate-pulse pointer-events-none" />}
+                  {(isHighlighted && isRandomizing) && <div className="absolute inset-0 flex items-center justify-center pointer-events-none p-2 overflow-hidden"><span className="text-slate-900 font-black italic text-4xl whitespace-nowrap scale-125 animate-in zoom-in duration-100">{cell.owner}</span></div>}
+                  {isAttacker && <div className="absolute inset-0 bg-amber-400/30 animate-[pulse_1.5s_infinite] shadow-[inset_0_0_20px_rgba(251,191,36,0.5)] pointer-events-none" />}
+                </div>
+              );
+            })}
+          </div>
+
+          {(gameState === 'floor' || gameState === 'randomizing') && gridSize.width > 0 && gridSize.height > 0 && regions.map((region, idx) => {
+            const cellW = gridSize.width / GRID_COLS; const cellH = gridSize.height / GRID_ROWS;
+            const left = region.minC * cellW; const top = region.minR * cellH; const width = (region.maxC - region.minC + 1) * cellW; const height = (region.maxR - region.minR + 1) * cellH;
+            const centerX = ((region.centerIdx % GRID_COLS) - region.minC) * cellW + (cellW / 2); const centerY = (Math.floor(region.centerIdx / GRID_COLS) - region.minR) * cellH + (cellH / 2);
+            const isAttackerRegion = attacker && attacker.owner === region.owner;
+            const isTargetRegion = attacker && targetableOwners.includes(region.owner);
+            const isHighlightedRegion = highlightedIndex !== null && cells[highlightedIndex]?.owner === region.owner;
+            const isRandomizing = gameState === 'randomizing';
+            const isHidden = (attacker && !isAttackerRegion && !isTargetRegion) || (isRandomizing && !isHighlightedRegion);
+            const isHovered = hoveredOwner === region.owner;
+            const clipPathData = region.indices.map(cellIdx => {
+              const r = Math.floor(cellIdx / GRID_COLS) - region.minR;
+              const c = (cellIdx % GRID_COLS) - region.minC;
+              const x = c * cellW; const y = r * cellH;
+              return `M${x},${y} h${cellW} v${cellH} h-${cellW} z`;
+            }).join(' ');
+
+            return (
+              <div key={idx} onMouseEnter={() => setHoveredOwner(region.owner)} onMouseLeave={() => setHoveredOwner(null)}
+                className={`absolute transition-all duration-300 pointer-events-none ${isHidden ? 'opacity-0 scale-75' : 'opacity-100 scale-100'} z-40`}
+                style={{ left, top, width, height, clipPath: `path('${clipPathData}')`, WebkitClipPath: `path('${clipPathData}')` }}>
+                <div className="absolute flex flex-col items-center justify-center gap-1 transition-all duration-300" style={{ left: centerX, top: centerY, transform: 'translate(-50%, -50%)', width: cellW * 0.9, height: cellH * 0.9 }}>
+                  {!isHidden && !isRandomizing && (
+                    <button onClick={(e) => { e.stopPropagation(); setEditingRegion(region); }} className={`absolute -top-4 -right-4 bg-black/40 hover:bg-white text-white hover:text-black p-2 rounded-lg pointer-events-auto transition-all z-50 backdrop-blur-sm border border-white/10 ${isHovered ? 'opacity-100' : 'opacity-0'}`}>
+                      <Edit3 size={12} />
+                    </button>
+                  )}
+                  <div onClick={(e) => { e.stopPropagation(); startDuel(region.owner, region.category, region.color); }}
+                  className={`px-2 py-1 rounded-full font-black tracking-tighter uppercase backdrop-blur-md shadow-2xl transition-all duration-300 pointer-events-auto cursor-pointer ${isHighlightedRegion && isRandomizing ? 'bg-white text-black scale-[2.5] z-50' : isAttackerRegion ? 'bg-amber-400 text-black scale-110 border-2 border-white' : 'bg-black/60 text-white text-[8px]'} ${isTargetRegion && isHovered ? 'scale-110 bg-red-600' : ''}`}>
+                    {region.owner}
+                  </div>
+                  <div className={`w-full h-[40%] flex items-center justify-center transition-transform duration-200 ${isTargetRegion && isHovered ? 'scale-110' : ''}`}>
+                    {!isAttackerRegion ? <AutoScaledText text={region.category} containerWidth={cellW * 0.8} containerHeight={cellH * 0.3} maxFontSize={24} /> : <div className="flex flex-col items-center justify-center text-amber-400 animate-bounce"><Sword size={16} strokeWidth={3} /></div>}
+                  </div>
+                  {isTargetRegion && <div className={`absolute -bottom-6 transition-opacity flex flex-col items-center ${isHovered ? 'opacity-100' : 'opacity-0'}`}><Sword size={16} className="text-red-500 animate-bounce" /></div>}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {gameState === 'duel' && (
+          <div className="absolute inset-0 z-[100] bg-slate-950 flex flex-col items-center justify-between p-6 animate-in fade-in duration-500 overflow-hidden">
+            <div className="text-center py-2">
+                <div className="text-[10px] font-black text-blue-500 uppercase tracking-[0.3em] mb-1">CATEGORY</div>
+                <div className="text-3xl font-black text-white italic uppercase tracking-tighter">{defender?.category}</div>
+            </div>
+            <div className="flex-1 w-full max-w-5xl flex flex-col gap-4 min-h-0 items-center justify-center relative">
+              <div className="w-full h-full bg-black rounded-3xl border-4 border-slate-900 shadow-2xl relative overflow-hidden flex items-center justify-center">
+                {decks[defender?.category]?.[currentImageIndex] ? <img key={currentImageIndex} src={decks[defender?.category][currentImageIndex].url} className="w-full h-full object-contain animate-in fade-in zoom-in duration-300" alt="Quiz" /> : <div className="flex flex-col items-center gap-4 text-slate-700"><ImageIcon size={60} strokeWidth={1} /><p className="font-black text-sm uppercase tracking-tighter">Deck Empty</p></div>}
+                <div className="absolute bottom-4 left-4 flex items-center gap-3 bg-black/60 backdrop-blur-md px-4 py-2 rounded-xl border border-white/10">
+                  {activeDuelist === 'attacker' ? <Sword size={16} className="text-red-500" /> : <Shield size={16} className="text-blue-500" />}
+                  <div className="text-sm font-black italic uppercase leading-none">{activeDuelist === 'attacker' ? attacker?.owner : defender?.owner}</div>
+                </div>
+              </div>
+              <div className={`h-16 w-full max-w-2xl transition-all duration-300 flex items-center justify-center rounded-2xl border-2 overflow-hidden ${isShowingAnswer ? `opacity-100 scale-100 ${lastFeedbackType === 'pass' ? 'bg-red-500/20 border-red-500' : 'bg-green-500/20 border-green-500'}` : 'opacity-0 scale-95 border-transparent'}`}>
+                {isShowingAnswer && <div className="flex items-center gap-6 animate-in slide-in-from-bottom-2 duration-300"><div className="flex items-center gap-2">{lastFeedbackType === 'pass' ? <FastForward size={24} className="text-red-500" /> : <Check size={24} className="text-green-500" />}<span className="text-[10px] font-black text-white/50 uppercase tracking-widest">ANSWER:</span></div><div className="text-3xl font-black italic tracking-tighter uppercase text-white drop-shadow-md">{decks[defender?.category]?.[currentImageIndex]?.name}</div></div>}
+              </div>
+            </div>
+            <div className="flex gap-4 mt-4 w-full max-w-2xl pb-4">
+              <button disabled={isShowingAnswer} onClick={handlePass} className="flex-1 bg-slate-800 hover:bg-slate-700 disabled:opacity-50 rounded-2xl font-black text-sm flex items-center justify-center gap-2 active:scale-95 transition-all py-3 shadow-[0_4px_0_rgb(30,30,30)]"><FastForward size={18} /> PASS (-3s)</button>
+              <button disabled={isShowingAnswer} onClick={handleNextImage} className="flex-[1.5] bg-green-600 hover:bg-green-500 disabled:opacity-50 rounded-2xl font-black text-2xl italic tracking-tighter transition-all py-3 flex items-center justify-center gap-3 shadow-[0_4px_0_rgb(21,128,61)]"><Check size={28} strokeWidth={4} /> CORRECT</button>
+            </div>
+          </div>
+        )}
+
+        {editingRegion && (
+          <div className="absolute inset-0 z-[200] bg-black/95 backdrop-blur-xl flex items-center justify-center p-6 animate-in zoom-in duration-200">
+            <div className="bg-slate-900 w-full max-w-4xl rounded-[30px] flex flex-col border border-white/10 shadow-2xl overflow-hidden max-h-[90vh]">
+               <div className="p-8 border-b border-white/5 flex justify-between items-center">
+                  <div className="flex items-center gap-4">
+                    <div className="w-10 h-10 rounded-full flex items-center justify-center" style={{ backgroundColor: editingRegion.color }}><Edit3 className="text-white" size={20} /></div>
+                    <h3 className="text-2xl font-black uppercase tracking-tighter italic">Edit Territory Details</h3>
+                  </div>
+                  <button onClick={() => setEditingRegion(null)} className="text-slate-400 hover:text-white transition-colors"><X size={32} /></button>
+               </div>
+               <div className="flex-1 p-8 space-y-10 overflow-y-auto">
+                  <div className="grid grid-cols-2 gap-8">
+                    <div className="space-y-3">
+                      <label className="text-xs font-black text-blue-500 uppercase tracking-widest flex items-center gap-2"><User size={14} /> PLAYER IDENTITY</label>
+                      <input value={editingRegion.owner} autoFocus placeholder="Enter player name..." onChange={(e) => { const newName = e.target.value; const oldOwner = editingRegion.owner; setCells(prev => prev.map(c => c.owner === oldOwner ? { ...c, owner: newName } : c)); setEditingRegion(prev => ({ ...prev, owner: newName })); }} className="w-full bg-slate-950 p-5 rounded-2xl font-black text-xl border border-white/5 focus:border-blue-500 outline-none transition-all" />
+                    </div>
+                    <div className="space-y-3">
+                      <label className="text-xs font-black text-blue-500 uppercase tracking-widest flex items-center gap-2"><Trophy size={14} /> ACTIVE CATEGORY</label>
+                      <input value={editingRegion.category} placeholder="Enter category name..." onChange={(e) => { const newCat = e.target.value; const oldCat = editingRegion.category; const owner = editingRegion.owner; setCells(prev => prev.map(c => (c.owner === owner && c.category === oldCat) ? { ...c, category: newCat } : c)); setEditingRegion(prev => ({ ...prev, category: newCat })); }} className="w-full bg-slate-950 p-5 rounded-2xl font-black text-xl border border-white/5 focus:border-blue-500 outline-none transition-all" />
+                    </div>
+                  </div>
+                  <div className="space-y-5">
+                    <div className="flex justify-between items-end border-b border-white/5 pb-4">
+                      <div><label className="text-xs font-black text-blue-500 uppercase tracking-widest flex items-center gap-2"><ImageIcon size={14} /> DECK IMAGES ({decks[editingRegion.category]?.length || 0})</label><p className="text-slate-500 text-xs mt-1">Images appear during duels in this category</p></div>
+                      <label className="bg-white text-black hover:bg-blue-100 px-8 py-3 rounded-2xl text-sm font-black cursor-pointer flex items-center gap-2 transition-all shadow-[0_4px_0_rgb(200,200,200)] active:translate-y-1">
+                        <UploadCloud size={18} /> UPLOAD NEW IMAGES
+                        <input type="file" multiple accept="image/*" className="hidden" onChange={(e) => addDeckImages(editingRegion.category, e.target.files)} />
+                      </label>
+                    </div>
+                    <div className="grid grid-cols-4 md:grid-cols-5 gap-4 bg-slate-950/50 p-6 rounded-[24px] min-h-[250px] border border-white/5">
+                      {(decks[editingRegion.category] || []).map((img, i) => (
+                        <div key={i} className="relative aspect-square group/img rounded-xl overflow-hidden border border-white/10 shadow-inner bg-slate-900 flex flex-col">
+                          <div className="flex-1 relative"><img src={img.url} className="w-full h-full object-cover transition-transform duration-500 group-hover/img:scale-110" alt="" /><div className="absolute inset-0 bg-black/40 opacity-0 group-hover/img:opacity-100 transition-opacity flex items-center justify-center gap-2"><button onClick={() => removeDeckImage(editingRegion.category, i)} className="bg-red-600 text-white p-2 rounded-full hover:scale-110 active:scale-95 transition-all shadow-xl"><Trash2 size={20} /></button></div></div>
+                          <div className="p-2 bg-slate-800"><input value={img.name} placeholder="Image name..." onChange={(e) => renameDeckImage(editingRegion.category, i, e.target.value)} className="w-full bg-transparent text-[10px] font-black uppercase text-center focus:outline-none border-b border-white/10" /></div>
+                        </div>
+                      ))}
+                      {(!decks[editingRegion.category] || decks[editingRegion.category].length === 0) && <div className="col-span-full flex flex-col items-center justify-center py-10 opacity-30 text-center"><div className="p-6 rounded-full border-4 border-dashed border-slate-700 mb-4"><ImageIcon size={48} className="text-slate-600" /></div><p className="text-sm font-black uppercase tracking-tighter">No images in this deck yet</p></div>}
+                    </div>
+                  </div>
+               </div>
+               <div className="p-8 bg-black/30 border-t border-white/5 flex justify-end items-center">
+                  <button onClick={() => setEditingRegion(null)} className="bg-blue-600 text-white px-12 py-4 rounded-2xl font-black text-lg hover:bg-blue-500 transition-all shadow-[0_6px_0_rgb(30,58,138)] active:translate-y-1">FINISH EDITING</button>
+               </div>
+            </div>
+          </div>
+        )}
+      </main>
+    </div>
+  );
+}
