@@ -41,7 +41,7 @@
     // The first item maps to 1.jpg, the second to 2.jpg, etc.
     // ---------------------------------------------------------
     const masterAnswers = {
-      "CLOTHING BRAND LOGOS": ["Nike", "Adidas", "Lacoste", "Ralph Lauren", "Chanel", "Puma", "Gucci", "Louis Vuitton", "Supreme", "Hermès", "Burberry", "Versace", "Under Armour", "Emporio Armani", "Tommy Hilfiger", "Prada", "Fendi", "Levi's", "Swarovski", "Patagonia"], 
+      "CLOTHING BRAND LOGOS": ["Nike", "Adidas", "Lacoste", "Ralph Lauren", "Chanel", "Puma", "Gucci", "Louis Vuitton", "Supreme", "HermÃ¨s", "Burberry", "Versace", "Under Armour", "Emporio Armani", "Tommy Hilfiger", "Prada", "Fendi", "Levi's", "Swarovski", "Patagonia"], 
       "JOBS": ["Doctor", "Firefighter", "Pilot", "Chef", "Teacher", "Police Officer", "Nurse", "Engineer", "Lawyer", "Artist", "Architect", "Scientist", "Musician", "Farmer", "Construction Worker", "Software Developer", "Astronaut", "Journalist", "Veterinarian", "Electrician"],
       "POLITICIANS": ["Abraham Lincoln", "Winston Churchill", "Mahatma Gandhi", "Nelson Mandela", "John F. Kennedy", "Margaret Thatcher", "Barack Obama", "Angela Merkel", "Narendra Modi", "Vladimir Putin", "Donald Trump", "Joe Biden", "Xi Jinping", "Emmanuel Macron", "Kim Jong Un", "Boris Johnson", "Justin Trudeau", "Jacinda Ardern", "Lula da Silva", "Benjamin Netanyahu"],
       "MOVIES": ["The Lion King (1994)", "Titanic (1997)", "Jurassic Park (1993)", "The Matrix (1999)", "Star Wars (1977)", "Jaws (1975)", "Home Alone (1990)", "The Wizard of Oz (1939)", "Indiana Jones (1981)", "Forrest Gump (1994)", "The Godfather (1972)", "E.T. the Extra-Terrestrial (1982)", "Schindler's List (1993)", "Gladiator (2000)", "The Shining (1980)", "Pulp Fiction (1994)", "Avatar (2009)", "Inception (2010)", "The Dark Knight (2008)", "Frozen (2013)"],
@@ -57,7 +57,7 @@
       "POKEMON": ["Pikachu", "Charizard", "Bulbasaur", "Squirtle", "Gengar", "Mewtwo", "Eevee", "Snorlax", "Jigglypuff", "Meowth", "Lapras", "Dragonite", "Umbreon", "Lugia", "Togepi", "Arcanine", "Alakazam", "Gyarados", "Lucario", "Garchomp"],
       "MTR STATIONS": ["Central", "Admiralty", "Tsim Sha Tsui", "Mong Kok", "Causeway Bay", "Choi Hung", "Diamond Hill", "Wong Tai Sin", "Tai Koo", "North Point", "Wan Chai", "Sunny Bay", "Disneyland Resort", "Tung Chung", "Ocean Park", "Ngong Ping (Cable Car)", "Exhibition Centre", "HKU", "Kennedy Town", "West Kowloon (HSR)"],
       "ANIMALS": ["Lion", "Elephant", "Tiger", "Giraffe", "Zebra", "Giant Panda", "Kangaroo", "Polar Bear", "Wolf", "Gorilla", "Bald Eagle", "Dolphin", "Emperor Penguin", "Camel", "Red Panda", "Sloth", "Red Fox", "Koala", "Great Horned Owl", "Sea Turtle"],
-      "FAMOUS ATHLETES": ["Lionel Messi", "Cristiano Ronaldo", "Neymar Jr.", "Kylian Mbappé", "Mohamed Salah", "LeBron James", "Stephen Curry", "Roger Federer", "Rafael Nadal", "Serena Williams", "Conor McGregor", "Mike Tyson", "Tiger Woods", "Usain Bolt", "Muhammad Ali", "Michael Phelps", "Simone Biles", "Lewis Hamilton", "Shohei Ohtani", "Novak Djokovic"],
+      "FAMOUS ATHLETES": ["Lionel Messi", "Cristiano Ronaldo", "Neymar Jr.", "Kylian MbappÃ©", "Mohamed Salah", "LeBron James", "Stephen Curry", "Roger Federer", "Rafael Nadal", "Serena Williams", "Conor McGregor", "Mike Tyson", "Tiger Woods", "Usain Bolt", "Muhammad Ali", "Michael Phelps", "Simone Biles", "Lewis Hamilton", "Shohei Ohtani", "Novak Djokovic"],
       "HONG KONG CELEBRITIES": ["Bruce Lee", "Jacky Chan", "Chow Yun Fat", "Tony Leung Chiu Wai", "Maggie Cheung", "Leslie Cheung", "Anita Mui", "Andy Lau", "Stephen Chow", "Donnie Yen", "Nicholas Tse", "Louis Koo"],
       "POPULAR ANIME": ["One Piece", "Naruto", "Dragon Ball", "Attack on Titan", "Demon Slayer", "My Hero Academia", "Jujutsu Kaisen", "Death Note", "Fullmetal Alchemist", "Hunter x Hunter", "Sword Art Online", "Tokyo Ghoul", "Bleach", "Fairy Tail", "Black Clover", "Spirited Away", "Your Name", "Cowboy Bebop", "Evangelion", "Sailor Moon"],
       "FAST FOOD": ["Tacos", "Hamburger", "French Fries", "Pizza", "Hot Dog", "Chicken Nuggets", "Fried Chicken", "Nachos", "Onion Rings", "Burrito", "Fish and chips", "Donut", "Cheese sticks", "Ice cream", "Chicken Wings", "Hashbrowns", "Sandwiches", "Apple pie", "Milkshake", "Churros"]
@@ -321,42 +321,6 @@
 
     function App() {
       const [gameState, setGameState] = useState('setup');
-
-      const [showLogin, setShowLogin] = React.useState(false);
-      const [loginUsername, setLoginUsername] = React.useState('');
-      const [loginPassword, setLoginPassword] = React.useState('');
-      const [loginStatus, setLoginStatus] = React.useState('');
-
-      const handleLogin = async (e) => {
-        e.preventDefault();
-        setLoginStatus('Authenticating...');
-        try {
-          const response = await fetch('/api/load-game', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ username: loginUsername, password: loginPassword })
-          });
-          
-          if (response.ok) {
-            const data = await response.json();
-            if (data.cells) {
-              if (typeof setCells !== 'undefined') setCells(data.cells);
-              if (data.regions && typeof setRegions !== 'undefined') setRegions(data.regions);
-              if (data.playedPlayers && typeof setPlayedPlayers !== 'undefined') setPlayedPlayers(new Set(data.playedPlayers));
-              if (data.winStreaks && typeof setWinStreaks !== 'undefined') setWinStreaks(data.winStreaks);
-              if (data.powerUps && typeof setPowerUps !== 'undefined') setPowerUps(data.powerUps);
-              setGameState('floor'); // Start game immediately
-            } else {
-               setLoginStatus('No saved game found for this user.');
-            }
-          } else {
-            setLoginStatus('Invalid credentials.');
-          }
-        } catch (err) {
-          setLoginStatus('Error connecting to Vercel.');
-        }
-      };
-
       const [cells, setCells] = useState([]);
       const [attacker, setAttacker] = useState(null);
       const [defender, setDefender] = useState(null);
@@ -378,6 +342,79 @@
       // New State variables for Streaks and Power Ups
       const [winStreaks, setWinStreaks] = useState({});
       const [powerUps, setPowerUps] = useState({});
+
+      // New State variables for Vercel Login System
+      const [showLogin, setShowLogin] = useState(false);
+      const [loginUsername, setLoginUsername] = useState('');
+      const [loginPassword, setLoginPassword] = useState('');
+      const [loginStatus, setLoginStatus] = useState('');
+      const [saveStatus, setSaveStatus] = useState('');
+
+      const handleLogin = async (e) => {
+        e.preventDefault();
+        setLoginStatus('Authenticating...');
+        try {
+          const response = await fetch('/api/load-game', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username: loginUsername, password: loginPassword })
+          });
+          
+          if (response.ok) {
+            const data = await response.json();
+            if (data.cells) {
+              setCells(data.cells);
+              if (data.playedPlayers) setPlayedPlayers(new Set(data.playedPlayers));
+              if (data.winStreaks) setWinStreaks(data.winStreaks);
+              if (data.powerUps) setPowerUps(data.powerUps);
+              
+              setGameState('floor'); // Skip setup and go straight to the game
+            } else {
+               setLoginStatus('No saved game found for this user.');
+            }
+          } else {
+            setLoginStatus('Invalid credentials.');
+          }
+        } catch (err) {
+          setLoginStatus('Error connecting to Vercel.');
+        }
+      };
+
+      const handleSave = async () => {
+        if (!loginUsername || !loginPassword) {
+          setSaveStatus('Please login first to save to cloud.');
+          setTimeout(() => setSaveStatus(''), 3000);
+          return;
+        }
+
+        setSaveStatus('Saving to cloud...');
+        try {
+          const response = await fetch('/api/save-game', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 
+              username: loginUsername, 
+              password: loginPassword,
+              gameData: {
+                cells: cells,
+                playedPlayers: Array.from(playedPlayers),
+                winStreaks: winStreaks,
+                powerUps: powerUps
+              }
+            })
+          });
+          
+          if (response.ok) {
+            setSaveStatus('Cloud Save Successful!');
+          } else {
+            setSaveStatus('Failed to save. Check credentials.');
+          }
+        } catch (err) {
+          setSaveStatus('Error connecting to Vercel.');
+        }
+        
+        setTimeout(() => setSaveStatus(''), 3000);
+      };
 
       const gridRef = useRef(null);
       const { playPassSound, playCorrectSound, playRoundEndMusic, playTick, playVictoryFanfare, playAlarm, playLoseSound } = useAudio();
@@ -804,7 +841,7 @@
               <span className="text-blue-400 font-bold tracking-[0.2em] mb-2 uppercase text-sm">HKTAYY3 Presents:</span>
               <div className="text-8xl font-black text-blue-500 italic uppercase tracking-tighter drop-shadow-[0_15px_15px_rgba(0,0,0,0.5)] text-center">THE FLOOR</div>
             </div>
-            <button onClick={initFloor} className="bg-blue-600 hover:bg-blue-500 px-12 py-6 rounded-2xl font-black text-3xl shadow-[0_8px_0_rgb(30,58,138)] transition-all active:translate-y-2">START NEW GAME</button>
+            <button onClick={initFloor} className="bg-blue-600 hover:bg-blue-500 px-12 py-6 rounded-2xl font-black text-3xl shadow-[0_8px_0_rgb(30,58,138)] transition-all active:translate-y-2 w-full">START NEW GAME</button>
 
                   <div className="mt-8 pt-8 border-t border-white/10 w-full max-w-md mx-auto">
                     {!showLogin ? (
@@ -851,7 +888,6 @@
                       </form>
                     )}
                   </div>
-
           </div>
         );
       }
@@ -1162,8 +1198,14 @@
               <span>{regions.length} Active Duelists</span>
             </div>
             <div className="flex gap-4 items-center">
-              <Cloud size={12} className="text-green-500" />
-              <span>Local Session Active</span>
+              {saveStatus && <span className="text-amber-400 mr-4">{saveStatus}</span>}
+              <button 
+                onClick={handleSave}
+                className="flex items-center gap-2 bg-slate-800 hover:bg-slate-700 px-3 py-1.5 rounded-md border border-white/10 transition-colors"
+              >
+                <Cloud size={12} className={loginUsername ? "text-blue-400" : "text-slate-500"} />
+                <span>{loginUsername ? "Save to Cloud" : "Cloud Sync Offline"}</span>
+              </button>
             </div>
           </footer>
         </div>
