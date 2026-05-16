@@ -380,6 +380,41 @@
         }
       };
 
+      
+      const handleCreateAccount = async (e) => {
+        e.preventDefault();
+        if (!loginUsername || !loginPassword) {
+          setLoginStatus('Please enter username and password.');
+          return;
+        }
+        setLoginStatus('Creating account...');
+        try {
+          const response = await fetch('/api/save-game', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 
+              username: loginUsername, 
+              password: loginPassword,
+              gameData: {
+                cells: cells,
+                playedPlayers: Array.from(playedPlayers),
+                winStreaks: winStreaks,
+                powerUps: powerUps
+              }
+            })
+          });
+          
+          if (response.ok) {
+            setGameState('floor');
+            setTimeout(() => setSaveStatus('Account created & synced!'), 500);
+          } else {
+            setLoginStatus('Error: Username taken or invalid.');
+          }
+        } catch (err) {
+          setLoginStatus('Error connecting to Vercel.');
+        }
+      };
+
       const handleSave = async () => {
         if (!loginUsername || !loginPassword) {
           setSaveStatus('Please login first to save to cloud.');
@@ -853,7 +888,7 @@
                         LOGIN & RETRIEVE SAVED GAME
                       </button>
                     ) : (
-                      <form onSubmit={handleLogin} className="bg-slate-800/80 p-6 rounded-xl border border-white/10 flex flex-col gap-4 shadow-2xl">
+                      <form onSubmit={(e) => e.preventDefault()} className="bg-slate-800/80 p-6 rounded-xl border border-white/10 flex flex-col gap-4 shadow-2xl">
                         <h3 className="text-white font-black text-center uppercase tracking-widest text-sm mb-2">Vercel Cloud Sync</h3>
                         <input 
                           type="text" 
@@ -871,12 +906,22 @@
                           className="bg-slate-900 border border-white/10 rounded-lg px-4 py-3 text-white font-bold focus:outline-none focus:border-blue-500 transition-colors"
                           required
                         />
-                        <button 
-                          type="submit" 
-                          className="w-full bg-blue-600 hover:bg-blue-500 text-white px-8 py-3 rounded-xl font-black text-sm tracking-widest transition-all shadow-[0_4px_0_rgb(30,58,138)] active:translate-y-1 mt-2"
-                        >
-                          LOAD DATA
-                        </button>
+                        <div className="flex flex-col gap-3 mt-2">
+                          <button 
+                            type="button"
+                            onClick={handleLogin}
+                            className="w-full bg-blue-600 hover:bg-blue-500 text-white px-8 py-3 rounded-xl font-black text-sm tracking-widest transition-all shadow-[0_4px_0_rgb(30,58,138)] active:translate-y-1"
+                          >
+                            LOGIN & LOAD DATA
+                          </button>
+                          <button 
+                            type="button"
+                            onClick={handleCreateAccount}
+                            className="w-full bg-emerald-600 hover:bg-emerald-500 text-white px-8 py-3 rounded-xl font-black text-sm tracking-widest transition-all shadow-[0_4px_0_rgb(5,150,105)] active:translate-y-1"
+                          >
+                            CREATE NEW ACCOUNT
+                          </button>
+                        </div>
                         {loginStatus && <p className="text-center text-xs font-bold text-amber-400 mt-2">{loginStatus}</p>}
                         <button 
                           type="button" 
