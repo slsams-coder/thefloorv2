@@ -358,7 +358,7 @@
         if (saveData.winStreaks) setWinStreaks(saveData.winStreaks);
         if (saveData.powerUps) setPowerUps(saveData.powerUps);
         if (saveData.decks) setDecks(saveData.decks);
-        setGameState('floor');
+        setGameState('floor'); // Jumps straight into the game
       };
 
       const handleLogin = async (e) => {
@@ -370,7 +370,6 @@
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ username: loginUsername, password: loginPassword })
           });
-          
           if (response.ok) {
             const data = await response.json();
             setSaveSlots(data.saves || []);
@@ -380,28 +379,20 @@
             setLoginStatus('Invalid credentials.');
           }
         } catch (err) {
-          setLoginStatus('Error connecting to Vercel.');
+          setLoginStatus('Error connecting to cloud.');
         }
       };
 
       const handleCreateAccount = async (e) => {
         e.preventDefault();
-        if (!loginUsername || !loginPassword) {
-          setLoginStatus('Please enter username and password.');
-          return;
-        }
+        if (!loginUsername || !loginPassword) return setLoginStatus('Enter username and password.');
         setLoginStatus('Creating account...');
         try {
           const response = await fetch('/api/save-game', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ 
-              username: loginUsername, 
-              password: loginPassword,
-              action: 'create'
-            })
+            body: JSON.stringify({ username: loginUsername, password: loginPassword, action: 'create' })
           });
-          
           if (response.ok) {
             setSaveSlots([]);
             setLoggedIn(true);
@@ -410,7 +401,7 @@
             setLoginStatus('Error: Username taken or invalid.');
           }
         } catch (err) {
-          setLoginStatus('Error connecting to Vercel.');
+          setLoginStatus('Error connecting to cloud.');
         }
       };
 
@@ -420,7 +411,6 @@
           setTimeout(() => setSaveStatus(''), 3000);
           return;
         }
-        
         const saveName = window.prompt("Enter a name for this save:", new Date().toLocaleDateString() + " Game");
         if (!saveName) return;
 
@@ -430,29 +420,15 @@
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ 
-              username: loginUsername, 
-              password: loginPassword,
-              action: 'save',
-              saveName: saveName,
-              gameData: {
-                cells: cells,
-                playedPlayers: Array.from(playedPlayers),
-                winStreaks: winStreaks,
-                powerUps: powerUps,
-                decks: decks
-              }
+              username: loginUsername, password: loginPassword, action: 'save', saveName: saveName,
+              gameData: { cells: cells, playedPlayers: Array.from(playedPlayers), winStreaks: winStreaks, powerUps: powerUps, decks: decks }
             })
           });
-          
-          if (response.ok) {
-            setSaveStatus('Cloud Save Successful!');
-          } else {
-            setSaveStatus('Failed to save. Check credentials.');
-          }
+          if (response.ok) setSaveStatus('Cloud Save Successful!');
+          else setSaveStatus('Failed to save.');
         } catch (err) {
-          setSaveStatus('Error connecting to Vercel.');
+          setSaveStatus('Error connecting to cloud.');
         }
-        
         setTimeout(() => setSaveStatus(''), 3000);
       };
 
@@ -881,120 +857,47 @@
               <span className="text-blue-400 font-bold tracking-[0.2em] mb-2 uppercase text-sm">HKTAYY3 Presents:</span>
               <div className="text-8xl font-black text-blue-500 italic uppercase tracking-tighter drop-shadow-[0_15px_15px_rgba(0,0,0,0.5)] text-center">THE FLOOR</div>
             </div>
-            {loggedIn ? (
+                        {loggedIn ? (
               <div className="w-full max-w-xl mx-auto flex flex-col gap-6">
                 <div className="bg-slate-800/80 p-8 rounded-3xl border border-white/10 shadow-2xl flex flex-col gap-6">
                   <div className="flex justify-between items-center border-b border-white/10 pb-4">
                     <h3 className="text-white font-black text-xl uppercase tracking-widest">Welcome, {loginUsername}</h3>
-                    <button 
-                      onClick={() => { setLoggedIn(false); setLoginUsername(''); setLoginPassword(''); }}
-                      className="text-slate-400 text-xs font-bold uppercase hover:text-white transition-colors flex items-center gap-2"
-                    >
-                      <CloudOff size={14} /> Sign Out
-                    </button>
+                    <button onClick={() => { setLoggedIn(false); setLoginUsername(''); setLoginPassword(''); }} className="text-slate-400 text-xs font-bold uppercase hover:text-white transition-colors">Sign Out</button>
                   </div>
                   
                   <div className="flex flex-col gap-3">
-                    <p className="text-blue-400 text-sm font-bold uppercase tracking-widest flex items-center gap-2">
-                      <Save size={16} /> Your Saved Games
-                    </p>
+                    <p className="text-blue-400 text-sm font-bold uppercase tracking-widest">Your Saved Games</p>
                     {saveSlots.length > 0 ? (
-                      <div className="flex flex-col gap-3 max-h-60 overflow-y-auto pr-2 custom-scrollbar">
+                      <div className="flex flex-col gap-3 max-h-60 overflow-y-auto">
                         {saveSlots.map((slot, idx) => (
-                          <button 
-                            key={idx}
-                            onClick={() => loadSlot(slot.gameData)}
-                            className="w-full bg-slate-900 hover:bg-slate-700 text-white px-6 py-4 rounded-xl font-bold text-lg transition-all border border-white/5 flex items-center justify-between group"
-                          >
-                            <span>{slot.name}</span>
-                            <ChevronRight className="text-slate-500 group-hover:text-white transition-colors" size={20} />
+                          <button key={idx} onClick={() => loadSlot(slot.gameData)} className="w-full bg-slate-900 hover:bg-slate-700 text-white px-6 py-4 rounded-xl font-bold text-lg transition-all border border-white/5 text-left">
+                            {slot.name}
                           </button>
                         ))}
                       </div>
                     ) : (
-                      <div className="bg-slate-900/50 rounded-xl p-6 text-center border border-white/5">
-                        <p className="text-slate-500 text-sm font-bold uppercase tracking-widest">No saved games found.</p>
-                      </div>
+                      <div className="bg-slate-900/50 rounded-xl p-6 text-center border border-white/5"><p className="text-slate-500 text-sm font-bold uppercase">No saved games found.</p></div>
                     )}
                   </div>
-
-                  <div className="border-t border-white/10 pt-6 mt-2">
-                    <button 
-                      onClick={initFloor} 
-                      className="w-full bg-blue-600 hover:bg-blue-500 text-white px-8 py-5 rounded-2xl font-black text-xl tracking-widest transition-all shadow-[0_8px_0_rgb(30,58,138)] active:translate-y-2 flex items-center justify-center gap-3"
-                    >
-                      <Plus size={24} /> START FRESH GAME
-                    </button>
-                  </div>
+                  <button onClick={initFloor} className="w-full bg-blue-600 hover:bg-blue-500 text-white px-8 py-5 rounded-2xl font-black text-xl tracking-widest transition-all shadow-[0_8px_0_rgb(30,58,138)] active:translate-y-2 mt-2">START FRESH GAME</button>
                 </div>
               </div>
             ) : (
               <div className="w-full max-w-md mx-auto flex flex-col gap-6">
-                <button onClick={initFloor} className="bg-slate-800 hover:bg-slate-700 text-white px-12 py-5 rounded-2xl font-black text-xl shadow-[0_4px_0_rgb(30,41,59)] transition-all active:translate-y-1 w-full border border-white/10">PLAY OFFLINE (NO SAVES)</button>
+                <button onClick={initFloor} className="bg-slate-800 hover:bg-slate-700 text-white px-12 py-5 rounded-2xl font-black text-xl shadow-[0_4px_0_rgb(30,41,59)] transition-all active:translate-y-1 w-full border border-white/10">PLAY OFFLINE</button>
                 
-                <div className="relative flex items-center py-2">
-                  <div className="flex-grow border-t border-white/10"></div>
-                  <span className="flex-shrink-0 mx-4 text-slate-500 text-xs font-bold uppercase tracking-widest">OR</span>
-                  <div className="flex-grow border-t border-white/10"></div>
-                </div>
-
                 {!showLogin ? (
-                  <button 
-                    onClick={() => setShowLogin(true)} 
-                    className="w-full bg-blue-600 hover:bg-blue-500 text-white px-8 py-5 rounded-2xl font-black text-xl tracking-widest transition-all shadow-[0_6px_0_rgb(30,58,138)] active:translate-y-1 flex items-center justify-center gap-3"
-                  >
-                    <Cloud size={24} />
-                    LOGIN & RETRIEVE SAVES
-                  </button>
+                  <button onClick={() => setShowLogin(true)} className="w-full bg-blue-600 hover:bg-blue-500 text-white px-8 py-5 rounded-2xl font-black text-xl tracking-widest transition-all shadow-[0_6px_0_rgb(30,58,138)] active:translate-y-1">CLOUD SYNC</button>
                 ) : (
                   <div className="bg-slate-800/80 p-8 rounded-3xl border border-white/10 flex flex-col gap-5 shadow-2xl">
-                    <div className="flex flex-col items-center mb-2">
-                      <Cloud size={32} className="text-blue-500 mb-2" />
-                      <h3 className="text-white font-black text-center uppercase tracking-widest text-lg">Vercel Cloud Sync</h3>
-                    </div>
-                    <input 
-                      type="text" 
-                      placeholder="Username" 
-                      value={loginUsername}
-                      onChange={(e) => setLoginUsername(e.target.value)}
-                      className="bg-slate-900 border border-white/10 rounded-xl px-5 py-4 text-white font-bold focus:outline-none focus:border-blue-500 transition-colors text-lg"
-                      required
-                    />
-                    <input 
-                      type="password" 
-                      placeholder="Password" 
-                      value={loginPassword}
-                      onChange={(e) => setLoginPassword(e.target.value)}
-                      className="bg-slate-900 border border-white/10 rounded-xl px-5 py-4 text-white font-bold focus:outline-none focus:border-blue-500 transition-colors text-lg"
-                      required
-                    />
+                    <h3 className="text-white font-black text-center uppercase tracking-widest text-lg">Login</h3>
+                    <input type="text" placeholder="Username" value={loginUsername} onChange={(e) => setLoginUsername(e.target.value)} className="bg-slate-900 border border-white/10 rounded-xl px-5 py-4 text-white font-bold focus:outline-none focus:border-blue-500" required />
+                    <input type="password" placeholder="Password" value={loginPassword} onChange={(e) => setLoginPassword(e.target.value)} className="bg-slate-900 border border-white/10 rounded-xl px-5 py-4 text-white font-bold focus:outline-none focus:border-blue-500" required />
                     
-                    <div className="flex flex-col gap-3 mt-4">
-                      <button 
-                        type="button"
-                        onClick={handleLogin}
-                        className="w-full bg-blue-600 hover:bg-blue-500 text-white px-8 py-4 rounded-xl font-black text-sm tracking-widest transition-all shadow-[0_4px_0_rgb(30,58,138)] active:translate-y-1"
-                      >
-                        LOGIN & LOAD DATA
-                      </button>
-                      <button 
-                        type="button"
-                        onClick={handleCreateAccount}
-                        className="w-full bg-emerald-600 hover:bg-emerald-500 text-white px-8 py-4 rounded-xl font-black text-sm tracking-widest transition-all shadow-[0_4px_0_rgb(5,150,105)] active:translate-y-1"
-                      >
-                        CREATE NEW ACCOUNT
-                      </button>
-                    </div>
-                    
-                    {loginStatus && <p className="text-center text-sm font-bold text-amber-400 mt-2 p-2 bg-amber-400/10 rounded-lg">{loginStatus}</p>}
-                    
-                    <button 
-                      type="button" 
-                      onClick={(e) => { e.preventDefault(); setShowLogin(false); setLoginStatus(''); }}
-                      className="text-slate-500 text-xs font-bold uppercase tracking-widest hover:text-white mt-2 transition-colors"
-                    >
-                      Cancel
-                    </button>
+                    <button type="button" onClick={handleLogin} className="w-full bg-blue-600 hover:bg-blue-500 text-white px-8 py-4 rounded-xl font-black text-sm tracking-widest mt-2">LOGIN & LOAD</button>
+                    <button type="button" onClick={handleCreateAccount} className="w-full bg-emerald-600 hover:bg-emerald-500 text-white px-8 py-4 rounded-xl font-black text-sm tracking-widest">CREATE ACCOUNT</button>
+                    {loginStatus && <p className="text-center text-sm font-bold text-amber-400 mt-2">{loginStatus}</p>}
+                    <button type="button" onClick={() => setShowLogin(false)} className="text-slate-500 text-xs font-bold uppercase tracking-widest hover:text-white mt-2">Cancel</button>
                   </div>
                 )}
               </div>
@@ -1309,14 +1212,11 @@
               <span>{regions.length} Active Duelists</span>
             </div>
             <div className="flex gap-4 items-center">
-              {saveStatus && <span className="text-amber-400 mr-4">{saveStatus}</span>}
-              <button 
-                onClick={handleSave}
-                className="flex items-center gap-2 bg-slate-800 hover:bg-slate-700 px-3 py-1.5 rounded-md border border-white/10 transition-colors"
-              >
-                <Cloud size={12} className={loginUsername ? "text-blue-400" : "text-slate-500"} />
-                <span>{loginUsername ? "Save to Cloud" : "Cloud Sync Offline"}</span>
-              </button>
+              {saveStatus && <span className="text-amber-400 mr-4 font-bold">{saveStatus}</span>}
+<button onClick={handleSave} className="flex items-center gap-2 bg-slate-800 hover:bg-slate-700 px-4 py-2 rounded-lg border border-white/10 transition-colors">
+  <Cloud size={16} className={loginUsername ? "text-blue-400" : "text-slate-500"} />
+  <span className="font-bold text-sm tracking-widest uppercase">{loginUsername ? "Save to Cloud" : "Cloud Sync Offline"}</span>
+</button>
             </div>
           </footer>
         </div>
