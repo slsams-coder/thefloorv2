@@ -349,6 +349,18 @@
       const [loginPassword, setLoginPassword] = useState('');
       const [loginStatus, setLoginStatus] = useState('');
       const [saveStatus, setSaveStatus] = useState('');
+      
+      const [saveSlots, setSaveSlots] = useState([]);
+      const [loggedIn, setLoggedIn] = useState(false);
+
+      const loadSlot = (saveData) => {
+        setCells(saveData.cells || []);
+        if (saveData.playedPlayers) setPlayedPlayers(new Set(saveData.playedPlayers));
+        if (saveData.winStreaks) setWinStreaks(saveData.winStreaks);
+        if (saveData.powerUps) setPowerUps(saveData.powerUps);
+        if (saveData.decks) setDecks(saveData.decks);
+        setGameState('floor');
+      };
 
       const handleLogin = async (e) => {
         e.preventDefault();
@@ -362,16 +374,9 @@
           
           if (response.ok) {
             const data = await response.json();
-            if (data.cells) {
-              setCells(data.cells);
-              if (data.playedPlayers) setPlayedPlayers(new Set(data.playedPlayers));
-              if (data.winStreaks) setWinStreaks(data.winStreaks);
-              if (data.powerUps) setPowerUps(data.powerUps);
-              
-              setGameState('floor'); // Skip setup and go straight to the game
-            } else {
-               setLoginStatus('No saved game found for this user.');
-            }
+            setSaveSlots(data.saves || []);
+            setLoggedIn(true);
+            setLoginStatus('');
           } else {
             setLoginStatus('Invalid credentials.');
           }
@@ -380,7 +385,6 @@
         }
       };
 
-      
       const handleCreateAccount = async (e) => {
         e.preventDefault();
         if (!loginUsername || !loginPassword) {
@@ -395,18 +399,14 @@
             body: JSON.stringify({ 
               username: loginUsername, 
               password: loginPassword,
-              gameData: {
-                cells: cells,
-                playedPlayers: Array.from(playedPlayers),
-                winStreaks: winStreaks,
-                powerUps: powerUps
-              }
+              action: 'create'
             })
           });
           
           if (response.ok) {
-            setGameState('floor');
-            setTimeout(() => setSaveStatus('Account created & synced!'), 500);
+            setSaveSlots([]);
+            setLoggedIn(true);
+            setLoginStatus('');
           } else {
             setLoginStatus('Error: Username taken or invalid.');
           }
@@ -421,6 +421,9 @@
           setTimeout(() => setSaveStatus(''), 3000);
           return;
         }
+        
+        const saveName = window.prompt("Enter a name for this save:", new Date().toLocaleDateString() + " Game");
+        if (!saveName) return;
 
         setSaveStatus('Saving to cloud...');
         try {
@@ -430,11 +433,14 @@
             body: JSON.stringify({ 
               username: loginUsername, 
               password: loginPassword,
+              action: 'save',
+              saveName: saveName,
               gameData: {
                 cells: cells,
                 playedPlayers: Array.from(playedPlayers),
                 winStreaks: winStreaks,
-                powerUps: powerUps
+                powerUps: powerUps,
+                decks: decks
               }
             })
           });
@@ -876,26 +882,83 @@
               <span className="text-blue-400 font-bold tracking-[0.2em] mb-2 uppercase text-sm">HKTAYY3 Presents:</span>
               <div className="text-8xl font-black text-blue-500 italic uppercase tracking-tighter drop-shadow-[0_15px_15px_rgba(0,0,0,0.5)] text-center">THE FLOOR</div>
             </div>
-            <button onClick={initFloor} className="bg-blue-600 hover:bg-blue-500 px-12 py-6 rounded-2xl font-black text-3xl shadow-[0_8px_0_rgb(30,58,138)] transition-all active:translate-y-2 w-full">START NEW GAME</button>
+            {loggedIn ? (
+                  <div className="w-full max-w-xl mx-auto flex flex-col gap-6">
+                    <div className="bg-slate-800/80 p-8 rounded-3xl border border-white/10 shadow-2xl flex flex-col gap-6">
+                      <div className="flex justify-between items-center border-b border-white/10 pb-4">
+                        <h3 className="text-white font-black text-xl uppercase tracking-widest">Welcome, {loginUsername}</h3>
+                        <button 
+                          onClick={() => { setLoggedIn(false); setLoginUsername(''); setLoginPassword(''); }}
+                          className="text-slate-400 text-xs font-bold uppercase hover:text-white transition-colors flex items-center gap-2"
+                        >
+                          <CloudOff size={14} /> Sign Out
+                        </button>
+                      </div>
+                      
+                      <div className="flex flex-col gap-3">
+                        <p className="text-blue-400 text-sm font-bold uppercase tracking-widest flex items-center gap-2">
+                          <Save size={16} /> Your Saved Games
+                        </p>
+                        {saveSlots.length > 0 ? (
+                          <div className="flex flex-col gap-3 max-h-60 overflow-y-auto pr-2 custom-scrollbar">
+                            {saveSlots.map((slot, idx) => (
+                              <button 
+                                key={idx}
+                                onClick={() => loadSlot(slot.gameData)}
+                                className="w-full bg-slate-900 hover:bg-slate-700 text-white px-6 py-4 rounded-xl font-bold text-lg transition-all border border-white/5 flex items-center justify-between group"
+                              >
+                                <span>{slot.name}</span>
+                                <ChevronRight className="text-slate-500 group-hover:text-white transition-colors" size={20} />
+                              </button>
+                            ))}
+                          </div>
+                        ) : (
+                          <div className="bg-slate-900/50 rounded-xl p-6 text-center border border-white/5">
+                            <p className="text-slate-500 text-sm font-bold uppercase tracking-widest">No saved games found.</p>
+                          </div>
+                        )}
+                      </div>
 
-                  <div className="mt-8 pt-8 border-t border-white/10 w-full max-w-md mx-auto">
+                      <div className="border-t border-white/10 pt-6 mt-2">
+                        <button 
+                          onClick={initFloor} 
+                          className="w-full bg-blue-600 hover:bg-blue-500 text-white px-8 py-5 rounded-2xl font-black text-xl tracking-widest transition-all shadow-[0_8px_0_rgb(30,58,138)] active:translate-y-2 flex items-center justify-center gap-3"
+                        >
+                          <Plus size={24} /> START FRESH GAME
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="w-full max-w-md mx-auto flex flex-col gap-6">
+                    <button onClick={initFloor} className="bg-slate-800 hover:bg-slate-700 text-white px-12 py-5 rounded-2xl font-black text-xl shadow-[0_4px_0_rgb(30,41,59)] transition-all active:translate-y-1 w-full border border-white/10">PLAY OFFLINE (NO SAVES)</button>
+                    
+                    <div className="relative flex items-center py-2">
+                      <div className="flex-grow border-t border-white/10"></div>
+                      <span className="flex-shrink-0 mx-4 text-slate-500 text-xs font-bold uppercase tracking-widest">OR</span>
+                      <div className="flex-grow border-t border-white/10"></div>
+                    </div>
+
                     {!showLogin ? (
                       <button 
                         onClick={() => setShowLogin(true)} 
-                        className="w-full bg-slate-800 hover:bg-slate-700 text-white px-8 py-4 rounded-xl font-black text-sm tracking-widest transition-all shadow-[0_4px_0_rgb(30,41,59)] active:translate-y-1 flex items-center justify-center gap-3"
+                        className="w-full bg-blue-600 hover:bg-blue-500 text-white px-8 py-5 rounded-2xl font-black text-xl tracking-widest transition-all shadow-[0_6px_0_rgb(30,58,138)] active:translate-y-1 flex items-center justify-center gap-3"
                       >
-                        <Cloud size={18} />
-                        LOGIN & RETRIEVE SAVED GAME
+                        <Cloud size={24} />
+                        LOGIN & RETRIEVE SAVES
                       </button>
                     ) : (
-                      <form onSubmit={(e) => e.preventDefault()} className="bg-slate-800/80 p-6 rounded-xl border border-white/10 flex flex-col gap-4 shadow-2xl">
-                        <h3 className="text-white font-black text-center uppercase tracking-widest text-sm mb-2">Vercel Cloud Sync</h3>
+                      <div className="bg-slate-800/80 p-8 rounded-3xl border border-white/10 flex flex-col gap-5 shadow-2xl">
+                        <div className="flex flex-col items-center mb-2">
+                          <Cloud size={32} className="text-blue-500 mb-2" />
+                          <h3 className="text-white font-black text-center uppercase tracking-widest text-lg">Vercel Cloud Sync</h3>
+                        </div>
                         <input 
                           type="text" 
                           placeholder="Username" 
                           value={loginUsername}
                           onChange={(e) => setLoginUsername(e.target.value)}
-                          className="bg-slate-900 border border-white/10 rounded-lg px-4 py-3 text-white font-bold focus:outline-none focus:border-blue-500 transition-colors"
+                          className="bg-slate-900 border border-white/10 rounded-xl px-5 py-4 text-white font-bold focus:outline-none focus:border-blue-500 transition-colors text-lg"
                           required
                         />
                         <input 
@@ -903,36 +966,40 @@
                           placeholder="Password" 
                           value={loginPassword}
                           onChange={(e) => setLoginPassword(e.target.value)}
-                          className="bg-slate-900 border border-white/10 rounded-lg px-4 py-3 text-white font-bold focus:outline-none focus:border-blue-500 transition-colors"
+                          className="bg-slate-900 border border-white/10 rounded-xl px-5 py-4 text-white font-bold focus:outline-none focus:border-blue-500 transition-colors text-lg"
                           required
                         />
-                        <div className="flex flex-col gap-3 mt-2">
+                        
+                        <div className="flex flex-col gap-3 mt-4">
                           <button 
                             type="button"
                             onClick={handleLogin}
-                            className="w-full bg-blue-600 hover:bg-blue-500 text-white px-8 py-3 rounded-xl font-black text-sm tracking-widest transition-all shadow-[0_4px_0_rgb(30,58,138)] active:translate-y-1"
+                            className="w-full bg-blue-600 hover:bg-blue-500 text-white px-8 py-4 rounded-xl font-black text-sm tracking-widest transition-all shadow-[0_4px_0_rgb(30,58,138)] active:translate-y-1"
                           >
                             LOGIN & LOAD DATA
                           </button>
                           <button 
                             type="button"
                             onClick={handleCreateAccount}
-                            className="w-full bg-emerald-600 hover:bg-emerald-500 text-white px-8 py-3 rounded-xl font-black text-sm tracking-widest transition-all shadow-[0_4px_0_rgb(5,150,105)] active:translate-y-1"
+                            className="w-full bg-emerald-600 hover:bg-emerald-500 text-white px-8 py-4 rounded-xl font-black text-sm tracking-widest transition-all shadow-[0_4px_0_rgb(5,150,105)] active:translate-y-1"
                           >
                             CREATE NEW ACCOUNT
                           </button>
                         </div>
-                        {loginStatus && <p className="text-center text-xs font-bold text-amber-400 mt-2">{loginStatus}</p>}
+                        
+                        {loginStatus && <p className="text-center text-sm font-bold text-amber-400 mt-2 p-2 bg-amber-400/10 rounded-lg">{loginStatus}</p>}
+                        
                         <button 
                           type="button" 
                           onClick={(e) => { e.preventDefault(); setShowLogin(false); setLoginStatus(''); }}
-                          className="text-slate-400 text-xs font-bold uppercase tracking-widest hover:text-white mt-2 transition-colors"
+                          className="text-slate-500 text-xs font-bold uppercase tracking-widest hover:text-white mt-2 transition-colors"
                         >
                           Cancel
                         </button>
-                      </form>
+                      </div>
                     )}
                   </div>
+                )}
           </div>
         );
       }
