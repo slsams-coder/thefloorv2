@@ -1,4 +1,5 @@
 module.exports = async function handler(req, res) {
+  // Only allow POST requests (which is what your frontend sends)
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
